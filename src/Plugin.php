@@ -228,8 +228,8 @@ class Plugin
 
         $frontDirectory = self::getConfig('front_directory', BASE_PATH . '/web');
 
-        if (! empty($info['installScript']) && class_exists($info['installScript'])) {
-            $installScript = ApplicationContext::getContainer()->make($info['installScript']);
+        if (! empty($info['composer']['installScript']) && class_exists($info['composer']['installScript'])) {
+            $installScript = ApplicationContext::getContainer()->make($info['composer']['installScript']);
             $installScript();
         }
 
@@ -303,8 +303,8 @@ class Plugin
                 'No installation behavior was detected for this plugin, and uninstallation could not be performed'
             );
         }
-        if (! empty($info['uninstallScript']) && class_exists($info['uninstallScript'])) {
-            $uninstallScript = ApplicationContext::getContainer()->make($info['uninstallScript']);
+        if (! empty($info['composer']['uninstallScript']) && class_exists($info['composer']['uninstallScript'])) {
+            $uninstallScript = ApplicationContext::getContainer()->make($info['composer']['uninstallScript']);
             $uninstallScript();
         }
         if (! empty($info['composer']['require'])) {
