@@ -17,7 +17,8 @@
     "require": {
         "ext-zip": "*",
         "hyperf/translation": "~3.1.0",
-        "nette/utils": "dev-master"
+        "nette/utils": "dev-master",
+        "hyperf/guzzle": "~3.1"
     },
     "autoload": {
         "psr-4": {
