@@ -59,6 +59,14 @@ class CreateCommand extends AbstractCommand
         return AbstractCommand::SUCCESS;
     }
 
+    public function createNamespace(string $path, string $name): string
+    {
+        $pluginPath = Str::replace(Plugin::PLUGIN_PATH . '/', '', $path);
+        list($orgName) = explode('/', $pluginPath);
+
+        return 'Plugin\\' . Str::studly($orgName) . '\\' . Str::studly($name);
+    }
+
     public function createMineJson(string $path, string $name, PluginTypeEnum $pluginType): void
     {
         $output = new \stdClass();
@@ -73,7 +81,7 @@ class CreateCommand extends AbstractCommand
             ],
         ];
         if ($pluginType === PluginTypeEnum::Backend || $pluginType === PluginTypeEnum::Mix) {
-            $namespace = 'Plugin\\' . Str::studly($name);
+            $namespace = $this->createNamespace($path, $name) ?? 'Plugin\\' . Str::studly($name);
 
             $this->createInstallScript($namespace, $path);
             $this->createUninstallScript($namespace, $path);
