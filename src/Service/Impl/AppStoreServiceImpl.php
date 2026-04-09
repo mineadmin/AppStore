@@ -14,10 +14,12 @@ namespace Mine\AppStore\Service\Impl;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\HandlerStack;
 use Hyperf\Collection\Arr;
 use Hyperf\Collection\Collection;
 use Hyperf\Contract\ConfigInterface;
 use Hyperf\Guzzle\ClientFactory;
+use Hyperf\Guzzle\CoroutineHandler;
 use Mine\AppStore\Plugin;
 use Mine\AppStore\Service\AppStoreService;
 
@@ -34,9 +36,21 @@ final class AppStoreServiceImpl implements AppStoreService
         ClientFactory $clientFactory,
         ConfigInterface $config
     ) {
+        /**
+         * 修复一：强制使用 CoroutineHandler
+         *
+         * 问题根源：bin/hyperf.php 中定义了 SWOOLE_HOOK_ALL（包含 SWOOLE_HOOK_NATIVE_CURL），
+         * Hyperf 的 ClientFactory 检测到该 flag 后，认为 cURL 已被 Swoole Hook 接管，
+         * 因此不会自动切换为 CoroutineHandler，而是退化使用 hooked cURL。
+         *
+         * 修复方案：手动创建 HandlerStack 并指定 CoroutineHandler，
+         * 绕过 ClientFactory 的自动检测逻辑，直接使用 Swoole 原生非阻塞 HTTP 客户端，
+         */
+        $stack = HandlerStack::create(new CoroutineHandler());
         $this->client = $clientFactory->create([
             'base_uri' => 'https://www.mineadmin.com/server/server/',
             'timeout' => 10.0,
+            'handler' => $stack,
         ]);
         $this->config = $config->get('mine-extension');
     }
