@@ -14,10 +14,12 @@ namespace Mine\AppStore\Service\Impl;
 
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
+use GuzzleHttp\HandlerStack;
 use Hyperf\Collection\Arr;
 use Hyperf\Collection\Collection;
 use Hyperf\Contract\ConfigInterface;
 use Hyperf\Guzzle\ClientFactory;
+use Hyperf\Guzzle\CoroutineHandler;
 use Mine\AppStore\Plugin;
 use Mine\AppStore\Service\AppStoreService;
 
@@ -34,9 +36,11 @@ final class AppStoreServiceImpl implements AppStoreService
         ClientFactory $clientFactory,
         ConfigInterface $config
     ) {
+        $stack = HandlerStack::create(new CoroutineHandler());
         $this->client = $clientFactory->create([
-            'base_uri' => 'https://www.mineadmin.com/server/server/',
+            'base_uri' => 'https://www.mineadmin.com/server/appServer/',
             'timeout' => 10.0,
+            'handler' => $stack,
         ]);
         $this->config = $config->get('mine-extension');
     }
@@ -56,8 +60,8 @@ final class AppStoreServiceImpl implements AppStoreService
         if ($response->getStatusCode() !== 200) {
             throw new \RuntimeException(trans('app-store.store.response_fail'));
         }
-        $result = json_decode($response->getBody()->getContents(), true, 512, JSON_THROW_ON_ERROR);
-        if (json_last_error() !== JSON_ERROR_NONE) {
+        $result = json_decode($response->getBody()->getContents(), true, 512, \JSON_THROW_ON_ERROR);
+        if (json_last_error() !== \JSON_ERROR_NONE) {
             throw new \RuntimeException(json_last_error_msg());
         }
         return $result;
@@ -94,9 +98,9 @@ final class AppStoreServiceImpl implements AppStoreService
      */
     public function download(string $identifier, string $version): bool
     {
-        $localPluginPath = Plugin::PLUGIN_PATH . DIRECTORY_SEPARATOR . $identifier;
+        $localPluginPath = Plugin::PLUGIN_PATH . \DIRECTORY_SEPARATOR . $identifier;
         if (file_exists($localPluginPath)) {
-            throw new \RuntimeException(sprintf('The plugin %s already exists', $identifier));
+            throw new \RuntimeException(\sprintf('The plugin %s already exists', $identifier));
         }
 
         $originData = $this->request(__FUNCTION__, [
@@ -133,7 +137,7 @@ final class AppStoreServiceImpl implements AppStoreService
         if ($zip->status !== \ZipArchive::ER_OK) {
             throw new \RuntimeException('Failed to open the zip file');
         }
-        $zip->extractTo(Plugin::PLUGIN_PATH . DIRECTORY_SEPARATOR . explode('/', $identifier)[0]);
+        $zip->extractTo(Plugin::PLUGIN_PATH . \DIRECTORY_SEPARATOR . explode('/', $identifier)[0]);
         $zip->close();
         return true;
     }

@@ -12,10 +12,11 @@ declare(strict_types=1);
 
 namespace Mine\AppStore\Command;
 
+use Hyperf\Codec\Json;
 use Hyperf\Command\Annotation\Command;
+use Hyperf\Stringable\Str;
 use Mine\AppStore\Enums\PluginTypeEnum;
 use Mine\AppStore\Plugin;
-use Mine\Helper\Str;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 
@@ -29,13 +30,8 @@ class CreateCommand extends AbstractCommand
     public function __invoke(): int
     {
         $path = $this->input->getArgument('path');
-        $name = $this->input->getOption('name');
         $type = $this->input->getOption('type') ?? 'mix';
         $type = PluginTypeEnum::fromValue($type);
-        if (empty($name)) {
-            $this->output->error('Plugin name is empty');
-            return AbstractCommand::FAILURE;
-        }
         if ($type === null) {
             $this->output->error('Plugin type is empty');
             return AbstractCommand::FAILURE;
@@ -43,26 +39,42 @@ class CreateCommand extends AbstractCommand
 
         $pluginPath = Plugin::PLUGIN_PATH . '/' . $path;
         if (file_exists($pluginPath)) {
-            $this->output->error(sprintf('Plugin directory %s already exists', $path));
+            $this->output->error(\sprintf('Plugin directory %s already exists', $path));
             return AbstractCommand::FAILURE;
         }
+
+        $path = str_replace('\\', '/', trim((string) $path));
+        if (! preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?\/[A-Za-z0-9](?:[A-Za-z0-9_-]*[A-Za-z0-9])?$/', $path) || str_contains($path, '..')) {
+            $this->output->error('Invalid plugin path. Use: organization/plugin-name (letters or digits, dash/underscore allowed, no dot).');
+            return AbstractCommand::FAILURE;
+        }
+
         $createDirectors = [
-            $pluginPath, $pluginPath . '/src', $pluginPath . '/Database', $pluginPath . '/Database/Migrations', $pluginPath . '/Database/Seeder', $pluginPath . '/web',
+            $pluginPath, $pluginPath . '/src', $pluginPath . '/Database', $pluginPath . '/Database/Migrations', $pluginPath . '/Database/Seeders', $pluginPath . '/web',
         ];
         foreach ($createDirectors as $directory) {
-            if (! mkdir($directory, 0755, true) && ! is_dir($directory)) {
-                throw new \RuntimeException(sprintf('Directory "%s" was not created', $directory));
+            if (! mkdir($directory, 0o755, true) && ! is_dir($directory)) {
+                throw new \RuntimeException(\sprintf('Directory "%s" was not created', $directory));
             }
         }
 
-        $this->createMineJson($pluginPath, $name, $type);
+        $this->createMineJson($pluginPath, $type);
         return AbstractCommand::SUCCESS;
     }
 
-    public function createMineJson(string $path, string $name, PluginTypeEnum $pluginType): void
+    public function createNamespace(string $path): string
     {
+        $pluginPath = Str::replace(Plugin::PLUGIN_PATH . '/', '', $path);
+        [$orgName, $extName] = explode('/', $pluginPath);
+        return 'Plugin\\' . Str::studly($orgName) . '\\' . Str::studly($extName);
+    }
+
+    public function createMineJson(string $path, PluginTypeEnum $pluginType): void
+    {
+        $pluginPath = Str::replace(Plugin::PLUGIN_PATH . '/', '', $path);
+
         $output = new \stdClass();
-        $output->name = $name;
+        $output->name = $pluginPath;
         $output->version = '1.0.0';
         $output->type = $pluginType->value;
         $output->description = $this->input->getOption('description') ?: 'This is a sample plugin';
@@ -73,7 +85,7 @@ class CreateCommand extends AbstractCommand
             ],
         ];
         if ($pluginType === PluginTypeEnum::Backend || $pluginType === PluginTypeEnum::Mix) {
-            $namespace = 'Plugin\\' . Str::studly($name);
+            $namespace = $this->createNamespace($path);
 
             $this->createInstallScript($namespace, $path);
             $this->createUninstallScript($namespace, $path);
@@ -96,10 +108,9 @@ class CreateCommand extends AbstractCommand
                 ],
             ];
         }
-
-        $output = json_encode($output, JSON_THROW_ON_ERROR | JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE, 512);
+        $output = Json::encode($output, \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES | \JSON_PRETTY_PRINT);
         file_put_contents($path . '/mine.json', $output);
-        $this->output->success(sprintf('%s 创建成功', $path . '/mine.json'));
+        $this->output->success(\sprintf('%s 创建成功', $path . '/mine.json'));
     }
 
     public function createInstallScript(string $namespace, string $path): void
@@ -107,14 +118,14 @@ class CreateCommand extends AbstractCommand
         $installScript = $this->buildStub('InstallScript', compact('namespace'));
         $installScriptPath = $path . '/src/InstallScript.php';
         file_put_contents($installScriptPath, $installScript);
-        $this->output->success(sprintf('%s Created Successfully', $installScriptPath));
+        $this->output->success(\sprintf('%s Created Successfully', $installScriptPath));
     }
 
     public function buildStub(string $stub, array $replace): string
     {
         $stubPath = $this->getStubDirectory() . '/' . $stub . '.stub';
         if (! file_exists($stubPath)) {
-            throw new \RuntimeException(sprintf('File %s does not exist', $stubPath));
+            throw new \RuntimeException(\sprintf('File %s does not exist', $stubPath));
         }
         $stubBody = file_get_contents($stubPath);
         foreach ($replace as $key => $value) {
@@ -133,7 +144,7 @@ class CreateCommand extends AbstractCommand
         $installScript = $this->buildStub('UninstallScript', compact('namespace'));
         $installScriptPath = $path . '/src/UninstallScript.php';
         file_put_contents($installScriptPath, $installScript);
-        $this->output->success(sprintf('%s Created Successfully', $installScriptPath));
+        $this->output->success(\sprintf('%s Created Successfully', $installScriptPath));
     }
 
     public function createConfigProvider(string $namespace, string $path): void
@@ -141,7 +152,7 @@ class CreateCommand extends AbstractCommand
         $installScript = $this->buildStub('ConfigProvider', compact('namespace'));
         $installScriptPath = $path . '/src/ConfigProvider.php';
         file_put_contents($installScriptPath, $installScript);
-        $this->output->success(sprintf('%s Created Successfully', $installScriptPath));
+        $this->output->success(\sprintf('%s Created Successfully', $installScriptPath));
     }
 
     protected function configure(): void
@@ -155,6 +166,6 @@ class CreateCommand extends AbstractCommand
 
     private function createViewScript(string $namespace, string $path): void
     {
-        ! is_dir($path . '/web') && mkdir($path . '/web', 0775);
+        ! is_dir($path . '/web') && mkdir($path . '/web', 0o775);
     }
 }

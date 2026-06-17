@@ -36,15 +36,15 @@ class LocalListCommand extends AbstractCommand
                 $info['name'],
                 $info['description'],
             ];
-            if (is_string($info['author'])) {
+            if (\is_string($info['author'])) {
                 $current[] = $info['author'];
             } else {
                 $current[] = $info['author'][0]['name'] ?? '--';
             }
-            $current += [
+            $current = array_merge($current, [
                 $info['homePage'] ?? '--',
                 $info['status'] ? 'installed' : 'uninstalled',
-            ];
+            ]);
             $rows[] = $current;
         }
         $this->table($headers, $rows);
